@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from typing import Optional, Tuple
-import spectra as sd
+#import spectra as sd
 
 
 # ============================================================
@@ -38,6 +38,60 @@ def make_tau_grid(Ntau: int, exclude_endpoints: bool = True):
         return np.arange(1, Ntau) / Ntau
     else:
         return np.arange(0, Ntau + 1) / Ntau
+    
+# ============================================================
+# 1a. Frequency grid
+# ============================================================
+    
+def make_frequency_grid(
+    wmin=1e-4,
+    wsplit=1.0,
+    wmax=40.0,
+    nlog=200,
+    nlin=400
+):
+    """
+    Build a mixed log-linear frequency grid in units of T:
+        x = omega / T
+
+    Returns
+    -------
+    w : np.ndarray
+        Frequency grid
+    """
+    w_log = np.logspace(np.log10(wmin), np.log10(wsplit), nlog, endpoint=False)
+    w_lin = np.linspace(wsplit, wmax, nlin)
+    w = np.unique(np.concatenate([w_log, w_lin]))
+    return w
+
+# ============================================================
+# 1b. Transport peak
+# ============================================================
+
+def lorentzian_transport_peak(w, A, Gamma):
+    """
+    IR transport peak:
+        rho_IR(w) = A * w / (1 + (w/Gamma)^2)
+
+    Low-frequency slope:
+        rho(w)/w -> A as w -> 0
+    So viscosity is proportional to A.
+    """
+    return A * w / (1.0 + (w / Gamma) ** 2)
+
+# ============================================================
+# 1c. Smooth switch
+# ============================================================
+
+def smooth_switch(w, Lambda=3.0, sharpness=4.0):
+    """
+    Smoothly turn on the UV contribution around Lambda.
+
+    f(w) ~ 0 for w << Lambda
+    f(w) ~ 1 for w >> Lambda
+    """
+    x = (w / Lambda) ** sharpness
+    return x / (1.0 + x)
 
 
 # ============================================================
@@ -286,12 +340,12 @@ if __name__ == "__main__":
     #     return A * w / (1.0 + (w / Gamma) ** 2)
 
     def mock_shear_rho(w, A=0.12, Gamma=1.2, B=8e-4, Lambda=3.5):
-        return sd.lorentzian_transport_peak(w, A, Gamma) + B * (w ** 4) * sd.smooth_switch(w, Lambda)
+        return lorentzian_transport_peak(w, A, Gamma) + B * (w ** 4) * smooth_switch(w, Lambda)
 
     # --------------------------------------------------------
     # Build grids
     # --------------------------------------------------------
-    w = sd.make_frequency_grid()
+    w = make_frequency_grid()
     u = make_tau_grid(Ntau=16, exclude_endpoints=True)
 
     # --------------------------------------------------------
